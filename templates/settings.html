@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{% if lang == 'en' %}Settings{% elif lang == 'tg' %}Танзимот{% else %}Настройки{% endif %} — ХГУ Тест{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="page-header">
+        <h1>{% if lang == 'en' %}Settings{% elif lang == 'tg' %}Танзимот{% else %}Настройки{% endif %}</h1>
+    </div>
+
+    <div class="card">
+        <div class="card-title">{% if lang == 'en' %}Full name{% elif lang == 'tg' %}НОМУ насаб{% else %}ФИО{% endif %}</div>
+        <form method="POST" action="{{ url_for('settings') }}">
+            <input type="hidden" name="action" value="change_name">
+            <div class="form-group">
+                <input type="text" name="full_name" value="{{ full_name or '' }}" required placeholder="Иванов Иван Иванович">
+            </div>
+            <button type="submit" class="btn btn-primary">{% if lang == 'en' %}Save name{% elif lang == 'tg' %}Нигоҳ доштан{% else %}Сохранить ФИО{% endif %}</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-title">{% if lang == 'en' %}Change password{% elif lang == 'tg' %}Парол{% else %}Сменить пароль{% endif %}</div>
+        <form method="POST" action="{{ url_for('settings') }}">
+            <input type="hidden" name="action" value="change_password">
+            <div class="form-group">
+                <label>{% if lang == 'en' %}Current{% elif lang == 'tg' %}Ҳозира{% else %}Текущий{% endif %}</label>
+                <input type="password" name="old_password" required>
+            </div>
+            <div class="form-group">
+                <label>{% if lang == 'en' %}New{% elif lang == 'tg' %}Нав{% else %}Новый{% endif %}</label>
+                <input type="password" name="new_password" required minlength="6">
+            </div>
+            <div class="form-group">
+                <label>{% if lang == 'en' %}Repeat{% elif lang == 'tg' %}Такрор{% else %}Повтор{% endif %}</label>
+                <input type="password" name="new_password2" required minlength="6">
+            </div>
+            <button type="submit" class="btn btn-primary">{% if lang == 'en' %}Save{% elif lang == 'tg' %}Нигоҳ доштан{% else %}Сохранить{% endif %}</button>
+        </form>
+        <p style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">
+            {% if lang == 'en' %}If you registered with Face ID, set a password to also log in with email later.{% elif lang == 'tg' %}Агар бо Face ID ворид шуда бошед, парол гузоред.{% else %}Если вошли через Face ID — задайте пароль для входа по email.{% endif %}
+        </p>
+    </div>
+
+    <div class="card">
+        <div class="card-title">{% if lang == 'en' %}Language{% elif lang == 'tg' %}Забон{% else %}Язык{% endif %}</div>
+        <form method="POST" action="{{ url_for('settings') }}">
+            <input type="hidden" name="action" value="change_language">
+            <div class="form-group">
+                <select name="language">
+                    <option value="ru" {% if lang == 'ru' %}selected{% endif %}>Русский</option>
+                    <option value="tg" {% if lang == 'tg' %}selected{% endif %}>Тоҷикӣ</option>
+                    <option value="en" {% if lang == 'en' %}selected{% endif %}>English</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">{% if lang == 'en' %}Change{% elif lang == 'tg' %}Иваз{% else %}Изменить{% endif %}</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-title">{% if lang == 'en' %}Theme{% elif lang == 'tg' %}Мавзӯъ{% else %}Тема{% endif %}</div>
+        <form method="POST" action="{{ url_for('settings') }}">
+            <input type="hidden" name="action" value="change_theme">
+            <div class="form-group">
+                <select name="theme">
+                    <option value="light" {% if theme == 'light' %}selected{% endif %}>{% if lang == 'en' %}Light{% elif lang == 'tg' %}Равшан{% else %}Светлая{% endif %}</option>
+                    <option value="dark" {% if theme == 'dark' %}selected{% endif %}>{% if lang == 'en' %}Dark{% elif lang == 'tg' %}Торик{% else %}Тёмная{% endif %}</option>
+                </select>
+            </div>
+            <button type="submit" class="btn btn-primary">{% if lang == 'en' %}Apply{% elif lang == 'tg' %}Татбиқ{% else %}Применить{% endif %}</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-title">{% if lang == 'en' %}Sound{% elif lang == 'tg' %}Садо{% else %}Звук{% endif %}</div>
+        <form method="POST" action="{{ url_for('settings') }}">
+            <input type="hidden" name="action" value="change_sound">
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="sound_enabled" value="1" {% if sound_enabled %}checked{% endif %}>
+                    {% if lang == 'en' %}Sounds during test{% elif lang == 'tg' %}Садо дар тест{% else %}Звук во время теста{% endif %}
+                </label>
+            </div>
+            <button type="submit" class="btn btn-primary">{% if lang == 'en' %}Save{% elif lang == 'tg' %}Нигоҳ доштан{% else %}Сохранить{% endif %}</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Instagram</div>
+        <a href="{{ instagram_url }}" target="_blank" class="btn btn-accent">Instagram</a>
+    </div>
+</div>
+{% endblock %}

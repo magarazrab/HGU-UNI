@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1a5f7a">
+    <link rel="manifest" href="/manifest.json">
+    <title>ХГУ Тест</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+      #splash { position:fixed; inset:0; background:#1a5f7a; z-index:9999; display:flex; flex-direction:column; align-items:center; justify-content:center; color:#fff; transition:opacity .4s; }
+      #splash.hide { opacity:0; pointer-events:none; }
+      .pencil { font-size:3rem; animation: write 1.2s ease-in-out infinite; }
+      @keyframes write { 0%,100%{ transform: rotate(-8deg) translateY(0);} 50%{ transform: rotate(8deg) translateY(-6px);} }
+      .bar { width: min(280px,80vw); height:10px; background:rgba(255,255,255,.25); border-radius:8px; overflow:hidden; margin-top:20px; }
+      .bar > i { display:block; height:100%; width:0; background:#fff; border-radius:8px; transition: width .05s linear; }
+      .auth-page { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:16px; }
+      .auth-card { width:100%; max-width:400px; }
+      @media (max-width:480px) { .auth-card { box-shadow:none; } }
+      #okAnim { display:none; position:fixed; inset:0; background:rgba(0,0,0,.45); z-index:10000; align-items:center; justify-content:center; }
+      #okAnim.show { display:flex; }
+      .ok-circle { width:90px; height:90px; border-radius:50%; background:#2a9d8f; display:flex; align-items:center; justify-content:center; color:#fff; font-size:2.5rem; animation: pop .4s ease; }
+      @keyframes pop { from{ transform:scale(.5); opacity:0;} to{ transform:scale(1); opacity:1;} }
+    </style>
+</head>
+<body>
+<div id="splash">
+  <div class="pencil">✎</div>
+  <p style="margin-top:12px;font-weight:600;">ХГУ Тест</p>
+  <div class="bar"><i id="prog"></i></div>
+  <p id="pct" style="margin-top:8px;font-size:.9rem;">0%</p>
+</div>
+<div id="okAnim"><div class="ok-circle">✓</div></div>
+<div class="auth-page" id="authUI" style="visibility:hidden;">
+  <div class="auth-card">
+    <h1>ХГУ Тест</h1>
+    <p class="subtitle">Подготовка к поступлению</p>
+    <p id="secureHint" style="text-align:center;font-size:.78rem;color:#6c757d;margin-bottom:12px;"></p>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}{% for c,m in messages %}<div class="flash flash-{{ c }}">{{ m }}</div>{% endfor %}{% endif %}
+    {% endwith %}
+    <button type="button" class="btn btn-accent btn-block" id="faceLoginBtn">Face ID / отпечаток</button>
+    <p id="faceMsg" style="display:none;text-align:center;font-size:.85rem;margin:8px 0;"></p>
+    <div style="text-align:center;color:#6c757d;font-size:.8rem;margin:12px 0;">или email</div>
+    <form method="POST" action="{{ url_for('login') }}">
+      <div class="form-group"><label>Email</label><input type="email" name="email" required autocomplete="username"></div>
+      <div class="form-group"><label>Пароль</label><input type="password" name="password" required autocomplete="current-password"></div>
+      <button type="submit" class="btn btn-primary btn-block">Войти</button>
+    </form>
+    <p style="text-align:center;margin-top:18px;font-size:.9rem;">
+      <a href="{{ url_for('register') }}">Ещё нет аккаунта?</a>
+    </p>
+  </div>
+</div>
+<script>
+(function(){
+  // device type
+  var isMobile = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || window.innerWidth < 768;
+  try { localStorage.setItem('hgu_device', isMobile ? 'mobile' : 'desktop'); } catch(e){}
+
+  var KEY = 'hgu_device_key';
+  var prog = document.getElementById('prog');
+  var pct = document.getElementById('pct');
+  var splash = document.getElementById('splash');
+  var n = 0;
+  var t = setInterval(function(){
+    n += 4 + Math.random()*6;
+    if (n >= 100) { n = 100; clearInterval(t); }
+    prog.style.width = n + '%';
+    pct.textContent = Math.floor(n) + '%';
+    if (n >= 100) {
+      setTimeout(function(){
+        splash.classList.add('hide');
+        document.getElementById('authUI').style.visibility = 'visible';
+        // auto face if key exists
+        if (localStorage.getItem(KEY)) {
+          setTimeout(function(){ document.getElementById('faceLoginBtn').click(); }, 400);
+        }
+      }, 300);
+    }
+  }, 40);
+
+  var secure = window.isSecureContext === true;
+  document.getElementById('secureHint').textContent = secure
+    ? 'HTTPS — доступен Face ID / отпечаток'
+    : 'HTTP — вход по ключу устройства';
+
+  function b64url(buf) {
+    return btoa(String.fromCharCode.apply(null, new Uint8Array(buf))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  }
+  async function webauthnLogin() {
+    if (!secure || !window.PublicKeyCredential) return null;
+    var challenge = new Uint8Array(32); crypto.getRandomValues(challenge);
+    var host = location.hostname;
+    var rpId = host === '127.0.0.1' ? 'localhost' : host;
+    var cred = await navigator.credentials.get({ publicKey: { challenge: challenge, timeout: 90000, userVerification: 'required', rpId: rpId }});
+    return cred ? b64url(cred.rawId) : null;
+  }
+  function successAnim(url) {
+    var a = document.getElementById('okAnim');
+    a.classList.add('show');
+    try {
+      var ctx = new (window.AudioContext||window.webkitAudioContext)();
+      var o = ctx.createOscillator(); var g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880; g.gain.value = 0.1; o.start();
+      setTimeout(function(){ o.frequency.value = 1200; }, 80);
+      setTimeout(function(){ o.stop(); ctx.close(); }, 200);
+    } catch(e){}
+    setTimeout(function(){ location.href = url; }, 700);
+  }
+  document.getElementById('faceLoginBtn').addEventListener('click', async function(){
+    var msg = document.getElementById('faceMsg');
+    msg.style.display = 'block'; msg.style.color = '#6c757d'; msg.textContent = 'Проверка...';
+    var credId = null;
+    try { credId = await webauthnLogin(); } catch(e){}
+    if (!credId) credId = localStorage.getItem(KEY);
+    if (!credId) {
+      msg.style.color = '#e63946';
+      msg.textContent = 'Ключ не найден. Нажмите «Ещё нет аккаунта?»';
+      return;
+    }
+    try {
+      var r = await fetch('/api/face/login', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({credential_id: credId})});
+      var data = await r.json();
+      if (!r.ok) { msg.style.color='#e63946'; msg.textContent = data.error||'Ошибка'; if(r.status===404) localStorage.removeItem(KEY); return; }
+      localStorage.setItem(KEY, credId);
+      successAnim(data.redirect || '/dashboard');
+    } catch(e) { msg.style.color='#e63946'; msg.textContent = 'Нет связи'; }
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Вопросы — {{ test.title_ru }}{% endblock %}
+{% block head %}
+<style>.admin-wrap { max-width: 1000px; margin: 0 auto; padding: 0 20px 40px; }</style>
+{% endblock %}
+{% block content %}
+{% set tt = test.test_type if test.test_type is defined and test.test_type else 'mcq' %}
+<div class="admin-wrap">
+    <div class="page-header">
+        <h1>{{ test.title_ru }}</h1>
+        <p>
+            Код: {{ test.code }} ·
+            Тип:
+            {% if tt == 'multi' %}два правильных ответа
+            {% elif tt == 'match' %}соединение предложений
+            {% else %}один правильный ответ{% endif %}
+            · <a href="{{ url_for('admin_content') }}">К списку</a>
+        </p>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Добавить вопрос (только тип этого теста)</div>
+        <form method="POST">
+            <input type="hidden" name="q_type" value="{{ tt }}">
+            <div class="form-group">
+                <label>{% if tt == 'match' %}Инструкция / тема{% else %}Текст вопроса{% endif %}</label>
+                <textarea name="q_ru" rows="2" required></textarea>
+            </div>
+            <div class="form-group"><label>{% if tt == 'match' %}Левая/вариант A{% else %}Вариант A{% endif %}</label><input type="text" name="opt_a" required></div>
+            <div class="form-group"><label>{% if tt == 'match' %}B{% else %}Вариант B{% endif %}</label><input type="text" name="opt_b" required></div>
+            <div class="form-group"><label>C (необяз.)</label><input type="text" name="opt_c"></div>
+            <div class="form-group"><label>D (необяз.)</label><input type="text" name="opt_d"></div>
+
+            {% if tt == 'multi' %}
+            <div class="form-group">
+                <label>Отметьте ровно 2 правильных</label>
+                <label style="display:block;font-weight:normal;"><input type="checkbox" name="correct_multi" value="0"> A</label>
+                <label style="display:block;font-weight:normal;"><input type="checkbox" name="correct_multi" value="1"> B</label>
+                <label style="display:block;font-weight:normal;"><input type="checkbox" name="correct_multi" value="2"> C</label>
+                <label style="display:block;font-weight:normal;"><input type="checkbox" name="correct_multi" value="3"> D</label>
+            </div>
+            {% elif tt == 'match' %}
+            <div class="form-group">
+                <label>Соединение: для каждой левой стороны укажите номер правой (0=A, 1=B, 2=C, 3=D)</label>
+                <div>Левая A → правая <input type="number" name="match_0" min="0" max="3" value="0" style="width:60px;"></div>
+                <div>Левая B → правая <input type="number" name="match_1" min="0" max="3" value="1" style="width:60px;"></div>
+                <div>Левая C → правая <input type="number" name="match_2" min="0" max="3" value="2" style="width:60px;"></div>
+                <div>Левая D → правая <input type="number" name="match_3" min="0" max="3" value="3" style="width:60px;"></div>
+            </div>
+            {% else %}
+            <div class="form-group">
+                <label>Правильный ответ</label>
+                <select name="correct_index">
+                    <option value="0">A</option>
+                    <option value="1">B</option>
+                    <option value="2">C</option>
+                    <option value="3">D</option>
+                </select>
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary">Добавить вопрос</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <div class="card-title">Вопросы ({{ questions|length }})</div>
+        {% for q in questions %}
+        <div style="padding:14px 0; border-bottom:1px solid var(--border);">
+            <strong>{{ loop.index }}. {{ q.q_ru }}</strong>
+            <div style="font-size:0.9rem; color:var(--text-muted); margin-top:6px;">
+                A) {{ q.opt_a }} · B) {{ q.opt_b }}
+                {% if q.opt_c %} · C) {{ q.opt_c }}{% endif %}
+                {% if q.opt_d %} · D) {{ q.opt_d }}{% endif %}
+            </div>
+            <form method="POST" action="{{ url_for('admin_question_delete', qid=q.id) }}" style="margin-top:8px;" onsubmit="return confirm('Удалить?');">
+                <button type="submit" class="btn btn-danger btn-sm">Удалить</button>
+            </form>
+        </div>
+        {% else %}
+        <p>Вопросов пока нет — добавьте выше.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

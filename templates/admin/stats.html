@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Статистика{% endblock %}
+{% block content %}
+<div class="container" style="max-width:1100px;">
+  <h1>Статистика тестов</h1>
+  <p><a class="btn btn-primary btn-sm" href="{{ url_for('admin_export_results') }}">Экспорт Excel</a></p>
+  <div class="card">
+    <table>
+      <thead><tr><th>Тест</th><th>Попыток</th><th>Верных (сумма)</th><th>Неверных</th><th>Средний %</th></tr></thead>
+      <tbody>
+      {% for t in by_test %}
+      <tr>
+        <td>{{ tests[t.test_id].title.ru if t.test_id in tests else t.test_id }}</td>
+        <td>{{ t.attempts }}</td>
+        <td>{{ t.sum_ok }}</td>
+        <td>{{ t.sum_bad }}</td>
+        <td>{{ ((t.avg_pct or 0)*100)|round(1) }}%</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5">Нет данных</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="card">
+    <div class="card-title">Последние результаты</div>
+    <table>
+      <thead><tr><th>Студент</th><th>Тест</th><th>Балл</th><th>Дата</th><th>Правка</th></tr></thead>
+      <tbody>
+      {% for r in recent %}
+      <tr>
+        <td>{{ r.full_name }}</td>
+        <td>{{ r.test_id }}</td>
+        <td>{{ r.score }}/{{ r.max_score }}</td>
+        <td>{{ r.created_at[:16] }}</td>
+        <td>
+          <form method="POST" action="{{ url_for('admin_result_edit', rid=r.id) }}" style="display:flex;gap:4px;flex-wrap:wrap;">
+            <input name="score" value="{{ r.score }}" style="width:60px;" title="score">
+            <input name="max_score" value="{{ r.max_score }}" style="width:60px;">
+            <input name="correct" value="{{ r.correct }}" style="width:40px;">
+            <input name="incorrect" value="{{ r.incorrect }}" style="width:40px;">
+            <button class="btn btn-sm btn-primary" type="submit">OK</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <a href="{{ url_for('admin_dashboard') }}">Назад</a>
+</div>
+{% endblock %}

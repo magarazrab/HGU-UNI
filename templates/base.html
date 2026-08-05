@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="{{ lang or 'ru' }}" data-theme="{{ current_user.theme if current_user.is_authenticated else 'light' }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1a5f7a">
+    <link rel="manifest" href="/manifest.json">
+    <title>{% block title %}ХГУ Тест{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body>
+    {% if current_user.is_authenticated %}
+    <nav class="navbar">
+        <div class="container">
+            <a href="{{ url_for('dashboard') if not current_user.is_admin else url_for('admin_dashboard') }}" class="navbar-brand">
+                ХГУ <span>Тест</span>
+                {% if current_user.is_pro and not current_user.is_admin %}
+                <span class="badge-pro">PRO</span>
+                {% endif %}
+            </a>
+            <div class="nav-links">
+                {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin_dashboard') }}">Панель</a>
+                    <a href="{{ url_for('admin_content') }}">Контент</a>
+                    <a href="{{ url_for('admin_stats') }}">Статистика</a>
+                    <a href="{{ url_for('admin_payment') }}">Реквизиты</a>
+                    <a href="{{ url_for('admin_users') }}">Пользователи</a>
+                    <a href="{{ url_for('admin_results') }}">Результаты</a>
+                    <a href="{{ url_for('admin_backup') }}">Бэкап БД</a>
+                {% else %}
+                    <a href="{{ url_for('dashboard') }}">Тесты</a>
+                    <a href="{{ url_for('leaderboard') }}">Мои результаты</a>
+                    <a href="{{ url_for('pro_page') }}">Pro</a>
+                    <a href="{{ url_for('settings') }}">Настройки</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}">Выход</a>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-container">
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+    <footer class="footer">
+        Худжандский государственный университет им. академика Б. Гафурова &mdash; Подготовка к поступлению
+    </footer>
+
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then(function(reg) {
+            {% if current_user.is_authenticated %}
+            setupPush(reg);
+            {% endif %}
+        }).catch(function(){});
+    }
+    function urlBase64ToUint8Array(base64String) {
+        var padding = '='.repeat((4 - base64String.length % 4) % 4);
+        var base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        var rawData = window.atob(base64);
+        var outputArray = new Uint8Array(rawData.length);
+        for (var i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+        return outputArray;
+    }
+    function setupPush(reg) {
+        if (!('PushManager' in window) || !window.isSecureContext) return;
+        fetch('/api/push/vapid_public').then(function(r){ return r.json(); }).then(function(data) {
+            if (!data.publicKey) return;
+            return reg.pushManager.getSubscription().then(function(sub) {
+                if (sub) return saveSub(sub);
+                return Notification.requestPermission().then(function(perm) {
+                    if (perm !== 'granted') return;
+                    return reg.pushManager.subscribe({
+                        userVisibleOnly: true,
+                        applicationServerKey: urlBase64ToUint8Array(data.publicKey)
+                    }).then(saveSub);
+                });
+            });
+        }).catch(function(){});
+    }
+    function saveSub(sub) {
+        var j = sub.toJSON();
+        return fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(j)
+        });
+    }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

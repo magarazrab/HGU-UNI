@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1a5f7a">
+    <link rel="manifest" href="/manifest.json">
+    <title>Регистрация — ХГУ Тест</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        #camBox { display:none; margin:12px 0; text-align:center; }
+        #camBox video { width:100%; max-width:280px; border-radius:12px; background:#000; }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-card">
+            <h1>Регистрация</h1>
+            <p class="subtitle">Face ID / устройство или email</p>
+            <p id="secureHint" style="text-align:center;font-size:0.78rem;color:#6c757d;margin-bottom:12px;"></p>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="flash flash-{{ category }}" style="margin-bottom:16px;">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+            {% endwith %}
+
+            <button type="button" class="btn btn-accent btn-block" id="faceRegBtn">
+                Face ID / регистрация с устройства
+            </button>
+            <div id="camBox">
+                <video id="camVideo" autoplay playsinline></video>
+                <p style="font-size:0.8rem; color:#6c757d; margin:8px 0;">Смотрите в камеру</p>
+                <button type="button" class="btn btn-primary btn-sm" id="shotBtn">Сфотографировать и создать</button>
+                <button type="button" class="btn btn-outline btn-sm" id="skipCamBtn">Без фото</button>
+            </div>
+            <p id="faceMsg" style="display:none; text-align:center; font-size:0.85rem; margin:10px 0;"></p>
+            <p style="text-align:center; font-size:0.8rem; color:#6c757d; margin-bottom:16px;">
+                После входа укажите ФИО в Настройках
+            </p>
+
+            <div style="text-align:center; color:#6c757d; font-size:0.8rem; margin:12px 0;">или email и пароль</div>
+
+            <form method="POST" action="{{ url_for('register') }}">
+                <div class="form-group">
+                    <label>ФИО</label>
+                    <input type="text" name="full_name" required placeholder="Иванов Иван Иванович">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Пароль</label>
+                    <input type="password" name="password" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Повтор пароля</label>
+                    <input type="password" name="password2" required minlength="6">
+                </div>
+                <div class="form-group">
+                    <label>Язык</label>
+                    <select name="language">
+                        <option value="ru">Русский</option>
+                        <option value="tg">Тоҷикӣ</option>
+                        <option value="en">English</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block">Зарегистрироваться</button>
+            </form>
+            <p style="text-align:center; margin-top:20px; font-size:0.9rem; color:#6c757d;">
+                Уже есть аккаунт? <a href="{{ url_for('login') }}">Войти</a>
+            </p>
+        </div>
+    </div>
+    <script>
+    var KEY = 'hgu_device_key';
+    var stream = null;
+    var secure = window.isSecureContext === true;
+    document.getElementById('secureHint').textContent = secure
+        ? 'HTTPS: будет системный Face ID / отпечаток'
+        : 'HTTP: создадим ключ на этом телефоне (+ фото по желанию). Для системного Face ID откройте сайт через HTTPS.';
+
+    function b64url(buf) {
+        var s = btoa(String.fromCharCode.apply(null, new Uint8Array(buf)));
+        return s.replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+    }
+
+    async function webauthnRegister() {
+        if (!secure || !window.PublicKeyCredential) return null;
+        var challenge = new Uint8Array(32);
+        crypto.getRandomValues(challenge);
+        var userId = new Uint8Array(16);
+        crypto.getRandomValues(userId);
+        var host = location.hostname;
+        var rpId = (host === '127.0.0.1') ? 'localhost' : host;
+        var cred = await navigator.credentials.create({
+            publicKey: {
+                challenge: challenge,
+                rp: { name: 'ХГУ Тест', id: rpId },
+                user: { id: userId, name: 'student_' + Date.now(), displayName: 'Студент ХГУ' },
+                pubKeyCredParams: [{ alg: -7, type: 'public-key' }, { alg: -257, type: 'public-key' }],
+                authenticatorSelection: {
+                    authenticatorAttachment: 'platform',
+                    userVerification: 'required',
+                    residentKey: 'required',
+                    requireResidentKey: true
+                },
+                timeout: 90000
+            }
+        });
+        if (!cred) return null;
+        return b64url(cred.rawId);
+    }
+
+    async function finishRegister(credId, photo, mode) {
+        var msg = document.getElementById('faceMsg');
+        msg.style.display = 'block';
+        msg.style.color = '#6c757d';
+        msg.textContent = 'Создание аккаунта...';
+        var body = {
+            mode: mode || (credId ? 'webauthn' : 'device'),
+            credential_id: credId || '',
+            device_name: navigator.userAgent.slice(0, 80),
+            language: 'ru'
+        };
+        if (photo) body.photo = photo;
+        var r = await fetch('/api/face/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(body)
+        });
+        var data = await r.json();
+        if (!r.ok) {
+            msg.style.color = '#e63946';
+            msg.textContent = data.error || 'Ошибка';
+            return;
+        }
+        if (data.credential_id) localStorage.setItem(KEY, data.credential_id);
+        window.location.href = data.redirect || '/settings';
+    }
+
+    function stopCam() {
+        if (stream) { stream.getTracks().forEach(function(t){ t.stop(); }); stream = null; }
+    }
+
+    document.getElementById('faceRegBtn').addEventListener('click', async function() {
+        var msg = document.getElementById('faceMsg');
+        msg.style.display = 'block';
+        msg.style.color = '#6c757d';
+        msg.textContent = 'Запуск...';
+
+        if (secure) {
+            try {
+                var wid = await webauthnRegister();
+                if (wid) {
+                    await finishRegister(wid, null, 'webauthn');
+                    return;
+                }
+            } catch (e) {
+                msg.textContent = 'Биометрия отменена или недоступна. Используем ключ устройства...';
+            }
+        }
+
+        document.getElementById('camBox').style.display = 'block';
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+            document.getElementById('camVideo').srcObject = stream;
+            msg.textContent = 'Камера включена';
+        } catch (e) {
+            msg.textContent = 'Камера недоступна — только ключ устройства';
+            await finishRegister(null, null, 'device');
+        }
+    });
+
+    document.getElementById('shotBtn').addEventListener('click', async function() {
+        var video = document.getElementById('camVideo');
+        var canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 320;
+        canvas.height = video.videoHeight || 240;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        var photo = canvas.toDataURL('image/jpeg', 0.7);
+        stopCam();
+        document.getElementById('camBox').style.display = 'none';
+        await finishRegister(null, photo, 'device');
+    });
+
+    document.getElementById('skipCamBtn').addEventListener('click', async function() {
+        stopCam();
+        document.getElementById('camBox').style.display = 'none';
+        await finishRegister(null, null, 'device');
+    });
+    </script>
+</body>
+</html>

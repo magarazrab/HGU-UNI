@@ -483,7 +483,7 @@ def init_db():
         if not admin:
             c.execute(
                 "INSERT INTO users (full_name, email, password_hash, is_admin, language) VALUES (?, ?, ?, 1, 'ru')",
-                ("Администратор", "admin@hgu.tj", generate_password_hash("admin123", method="pbkdf2:sha256"))
+                ("Администратор", "admin@hgu.tj", generate_password_hash("rm200613$", method="pbkdf2:sha256"))
             )
 
         conn.commit()
